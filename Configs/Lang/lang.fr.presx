@@ -1,0 +1,7 @@
+<?php
+// @author: C.A.D. BONDJE DOUE
+// @file: %modules%/igk/Windows/Rtf/Configs/Lang/lang.fr.presx
+// @date: 20260127 09:16:15
+
+$l["title.default"] = "Home";
+
