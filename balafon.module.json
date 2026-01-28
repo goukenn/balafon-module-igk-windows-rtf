@@ -2,5 +2,6 @@
     "name": "igk/Windows/Rtf",
     "author": "C.A.D. BONDJE DOUE",
     "version": "1.0",
+    "description":"windows rtf module support",
     "require": null
 }
