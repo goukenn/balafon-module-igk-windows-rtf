@@ -11,6 +11,7 @@ namespace igk\Windows\Rtf;
 * @author C.A.D. BONDJE DOUE
 */
 class RtfFonts{
+    const Arial = '\\fnil Arial';
     const Helvetica = '\\fswiss\\fcharset0 Helvetica';
     const Consolas= '\\fcharset0 Consolas';
     const CourierNew = '\\fcharset0 CourierNewPSMT';

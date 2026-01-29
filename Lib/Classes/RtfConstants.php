@@ -18,6 +18,7 @@ abstract class RtfConstants{
     const TAB = "\\tab";
     const LINE = "\\line";
     const RESET_PARARGRAPH = "\\pard";
+    const UNICODE_REPLACE_COUNTER_FMT = "\\uc%s";
 
     /**
      *  first line indent 
@@ -42,11 +43,18 @@ abstract class RtfConstants{
 
     const PUCE_CIRCLE = "\\uc0\\u8226";
     const PUCE_SQARE = "\\uc0\\u9642";
+    const PUCE_CHECK = "\\uc0\\u10003";
 
-    const LISTITEM_FMT = "{".self::LISTTEXT."\t%s }%s";
+    const ITEM_LVL_FMT ="\\ilvl%s";
+    const LIST_FMT ="\\ls%s";
+
+    const LISTITEM_FMT = "%s{".self::LISTTEXT."\t%s\t}%s";
 
     const PAGE_SIZE_FMT = "\\paperw%s\\paperh%s";
     const MARGIN_FMT = "\\margl%s\\margr%s\\margb%s\\margt%s";
     const VIEW_FMT = "\\vieww%s\\viewh%s\\viewkind%s";
 
+    const TAB_STOPS="\\tx220\\tx720\\tx1120\\tx1680\\tx2240\\tx2800\\tx3360\\tx3920\\tx4480\\tx5040\\tx5600\\tx6160\\tx6720";
+
+    const TAB_PUCE = "\\tx220\\tx720";
 }
