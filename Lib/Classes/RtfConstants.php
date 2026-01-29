@@ -19,7 +19,9 @@ abstract class RtfConstants{
     const LINE = "\\line";
     const RESET_PARARGRAPH = "\\pard";
     const UNICODE_REPLACE_COUNTER_FMT = "\\uc%s";
-
+    const LINK_FMT = "{\\field{\\*\\fldinst{HYPERLINK \"%s\"}}{\\fldrslt %s}}";
+    const LINK_TO_MARK_FMT = "{\\field{\\*\\fldinst{HYPERLINK \\\\l %s}}{\\fldrslt %s}}";
+    const BOOK_MARK_FMT = "{\\*\\bkmkstart %s}%s{\\*\\bkmkend %s}";
     /**
      *  first line indent 
      * */  
@@ -53,6 +55,7 @@ abstract class RtfConstants{
     const PAGE_SIZE_FMT = "\\paperw%s\\paperh%s";
     const MARGIN_FMT = "\\margl%s\\margr%s\\margb%s\\margt%s";
     const VIEW_FMT = "\\vieww%s\\viewh%s\\viewkind%s";
+    const BRD_COLOR_FMT= "\\brdrcf%s";
 
     const TAB_STOPS="\\tx220\\tx720\\tx1120\\tx1680\\tx2240\\tx2800\\tx3360\\tx3920\\tx4480\\tx5040\\tx5600\\tx6160\\tx6720";
 

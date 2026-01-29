@@ -10,6 +10,10 @@ namespace igk\Windows\Rtf;
 * @package igk\Windows\Rtf
 * @author C.A.D. BONDJE DOUE
 */
-class RtfImage{
+class RtfImage implements IRtfRender{
+    public function render(): string
+    {
+        throw new \Exception('Not implemented');
+    }
 
 }

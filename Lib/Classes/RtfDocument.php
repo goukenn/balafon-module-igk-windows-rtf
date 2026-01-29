@@ -166,7 +166,7 @@ class RtfDocument
     public function page()
     {
         $this->_update();
-        $this->m_items[] = '\\page';
+        $this->m_items[] = '\\page'."\n";
     }
 
     /**
@@ -271,14 +271,11 @@ class RtfDocument
         $c_list[] = "\n" . RtfUtility::FontTables($this->fonts);
         $c_list[] = "\n" . RtfUtility::ColorTableEntryFromWebColor($this->colors);
         $this->_update();
+        $c_list[] = "\n";
         if ($this->m_extends) {
-            $c_list = array_merge($c_list, ["\n"], $this->m_extends);
-        }
-        // if ($this->m_citem) {
-        //     $this->m_items[] = $this->m_citem;
-        //     $this->m_citem = null;
-        // }
-        $c_list = array_merge($c_list, ["\n"], $this->m_items);
+            $c_list = array_merge($c_list, $this->m_extends);
+        } 
+        $c_list = array_merge($c_list, $this->m_items);
         foreach ($c_list as $k){
             if ($k instanceof IRtfRender){
                 $k = $k->render();
@@ -396,5 +393,38 @@ class RtfDocument
     public function table(RtfTable $table){
         $this->_update();
         $this->m_items[] = $table;
+    }
+    /**
+     * 
+     * @param string $url 
+     * @param string $text 
+     * @return void 
+     */
+    public function linkto(string $url, string $text){
+        $this->_update();
+        $l = $this->prepareFormat($text);
+        $this->m_items[] = sprintf(RtfConstants::LINK_FMT, $url, $l);
+    }
+    /**
+     * 
+     * @param string $id 
+     * @param string $text 
+     * @return void 
+     */
+    public function linktoBookmark(string $id, string $text){
+        $this->_update();
+        $l = $this->prepareFormat($text);
+        $this->m_items[] = sprintf(RtfConstants::LINK_TO_MARK_FMT, $id, $l);
+    }
+    /**
+     * 
+     * @param string $id 
+     * @param string $text 
+     * @return void 
+     */
+    public function bookmark(string $id, string $text){
+        $this->_update();
+        $l = $this->prepareFormat($text);
+        $this->m_items[] = RtfUtility::BookMark($id, $l);
     }
 }

@@ -12,7 +12,7 @@ namespace igk\Windows\Rtf;
 */
 abstract class RtfBorderTypes{ 
     const BDR_SINGLE = '\\brdrs';
-    const BDR_DOUBE = '\\brdrdb';
+    const BDR_DOUBLE = '\\brdrdb';
     const BDR_DOT = '\\brdrdot';
     const BDR_DASH = '\\brdrdash';
     const BDR_DASHDOT = '\\brdrdashdot';

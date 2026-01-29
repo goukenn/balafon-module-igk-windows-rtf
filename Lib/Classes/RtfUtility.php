@@ -70,6 +70,11 @@ class RtfUtility extends RtfConstants
     {
         return sprintf(self::ITALIC_FMT, $value);
     }
+    /**
+     * 
+     * @param string $value 
+     * @return string 
+     */
     public static function Underline(string $value)
     {
         return sprintf(self::UNDERLINE_FMT, $value);
@@ -103,5 +108,27 @@ class RtfUtility extends RtfConstants
     }
     public static function MmToWtips(int $i){
         return ceil($i * 56.7);
+    }
+    /**
+     * 
+     * @param null|int $c 
+     * @param null|int $d 
+     * @return string|null 
+     */
+    public static function GetBorderColor(?int $c, ?int $d=null): ?string{
+        $cl = $c ?? $d;
+        if (!is_null($cl)){
+            return sprintf(RtfConstants::BRD_COLOR_FMT, $cl);
+        }
+        return null;
+    }
+    /**
+     * 
+     * @param mixed $id 
+     * @param mixed $text 
+     * @return string 
+     */
+    public static function BookMark($id, $text){
+        return sprintf(RtfConstants::BOOK_MARK_FMT, $id, $text, $id);
     }
 }
