@@ -12,47 +12,34 @@ use IGK\System\IO\StringBuilder;
  * @package igk\Windows\Rtf
  * @author C.A.D. BONDJE DOUE
  */
-class RtfDocument
-{
-    private $m_options;
-    private $m_states;
-
+class RtfDocument extends RtfEntryDocument
+{ 
+    /**
+     * font indexed
+     * @var array
+     */
+    var $titleFonts = [];
+    /**
+     * font sizes
+     * @var array
+     */
+    var $titleFontSizes = [];
     var $colors = ['#000'];
     var $fonts = ['\\froman Times New Roman'];
-    private $m_citem;
-    private $m_items = [];
+ 
     private $m_extends = [];
     private $m_header_state = false;
 
+   
     /**
-     * 
-     * @param mixed $size 
+     * get par default tab in  
+     * @param int $iMm 
      * @return void 
      */
-    public function setFontSize($size)
-    {
-        $this->m_states['font-size'] = '\\fs' . $this->_auto_select($size * 2);
+    public function setDefaultTab(int $iMm){
+        $this->m_states['default-tab'] = "\\pardeftab". RtfUtility::MmToWtips($iMm);
     }
-    public function setFont(int $index)
-    {
-        $this->m_states['font'] = '\\f' . $this->_auto_select($index);
-    }
-    public function setTextColor(int $index)
-    {
-        $this->m_states['text-color'] = '\\cf' . $this->_auto_select($index);
-    }
-    public function setBackgroundColor(int $index)
-    {
-        $this->m_states['background-color'] = '\\cb' . $this->_auto_select($index);
-    }
-    public function setStrokeWidth(int $size)
-    {
-        $this->m_states['stroke-width'] = '\\strokewidth' . $this->_auto_select($size);
-    }
-    protected function _auto_select(int $index)
-    {
-        return $index < 0 ? ' ' : $index;
-    }
+  
     /**
      * reset style 
      * @return void 
@@ -69,105 +56,12 @@ class RtfDocument
      */
     public function storeState()
     {
-        if ($this->m_states) {
-            $this->m_items[] = implode('', array_values($this->m_states)) . "\n";
-            $this->m_states = [];
+        if (!$this->m_header_state && $this->m_states){
             $this->m_header_state = true;
         }
+        parent::storeState();        
     }
-    public function prepareFormat(string $line)
-    {
-        $line = str_replace([
-            "\r\n",
-            "\n\r",
-        ], ["\n", "\n"], $line);
 
-        $tr = [
-            '°' => "\\'b0",
-            '²' => "\\'b2",
-            '³' => "\\'b3",
-            'µ' => "\\'b5",
-            'à' => "\\'e0",
-            'â' => "\\'e2",
-            'ä' => "\\'e4",
-            'è' => "\\'e8",
-            'é' => "\\'e9",
-            'ê' => "\\'ea",
-            'ë' => "\\'eb",
-            'î' => "\\'ee",
-            'ï' => "\\'ef",
-            'ô' => "\\'f4",
-            'ö' => "\\'f6",
-            'ù' => "\\'f9",
-            'ÿ' => "\\'ff",
-            'û' => "\\'fb",
-            'ü' => "\\'fc",
-            'ç' => "\\'e7",
-            'À' => "\\'c0",
-            'Â' => "\\'c2",
-            'Ä' => "\\'c4",
-            'Ç' => "\\'c7",
-            'È' => "\\'c8",
-            'É' => "\\'c9",
-            'Ê' => "\\'ca",
-            'Ë' => "\\'cb",
-            'Î' => "\\'ce",
-            'Ï' => "\\'cf",
-            'Ô' => "\\'d4",
-            'Ö' => "\\'d6",
-            'Ù' => "\\'d9",
-            'Û' => "\\'db",
-            'Ü' => "\\'dc",
-            // '€' => "\\'80",
-            '€' => "\\u8364?",
-            '«' => "\\'ab",
-            '»' => "\\'bb",
-            '—' => "\\'97",
-            '–' => "\\'96",
-            '£' => "\\'a3",
-        ];
-        $line = strtr($line, $tr);
-        $line = implode(RtfConstants::LF,  explode("\n", $line));
-        return $line;
-    }
-    /**
-     * save state
-     * @return mixed 
-     */
-    public function saveState()
-    {
-        $r = $this->m_states;
-        $this->m_states = [];
-        return $r;
-    }
-    /**
-     * 
-     * @param mixed $state 
-     * @return void 
-     */
-    public function restoreState($state)
-    {
-        $this->m_states = $state ?? [];
-    }
-    protected function _update()
-    {
-        if ($this->m_citem) {
-            $this->m_items[] = $this->m_citem;
-            $this->m_citem = null;
-        }
-        $this->storeState();
-    }
-    public function line(string $line)
-    {
-        $this->_update();
-        $line = $this->prepareFormat($line);
-        $this->m_citem = sprintf("{" . $line . "}");
-    }
-    public function page()
-    {
-        $this->_update();
-        $this->m_items[] = '\\page'."\n";
-    }
 
     /**
      * 
@@ -182,10 +76,8 @@ class RtfDocument
         $id = '\\ls1',
         $level = '\\ilvl0'
     ) {
-        $this->resetParagrah();
-        $tabPuce = $tabPuce ?? RtfConstants::TAB_PUCE;
-        $this->m_items[] = $tabPuce;
-        $this->m_items[] = sprintf(RtfConstants::LISTITEM_FMT, $id . $level, $bullet, $text) . RtfConstants::LF;
+        $this->resetParagrah(); 
+        $this->m_items[] = RtfUtility::List($text, $bullet, $tabPuce, $id, $level);
     }
     /**
      * set marking in cm
@@ -274,10 +166,10 @@ class RtfDocument
         $c_list[] = "\n";
         if ($this->m_extends) {
             $c_list = array_merge($c_list, $this->m_extends);
-        } 
+        }
         $c_list = array_merge($c_list, $this->m_items);
-        foreach ($c_list as $k){
-            if ($k instanceof IRtfRender){
+        foreach ($c_list as $k) {
+            if ($k instanceof IRtfRender) {
                 $k = $k->render();
             }
             $def->append($k);
@@ -304,7 +196,7 @@ class RtfDocument
     {
         $this->_update();
         $l = $this->prepareFormat($header);
-        $this->m_items[] = sprintf("{\\header %s\\par}", $l);
+        $this->m_items[] = sprintf("{\\header %s\\par}\n", $l);
     }
     public function setFooterNote(string $note)
     {
@@ -334,29 +226,29 @@ class RtfDocument
     public function listOverride(
         string $id,
         $listid = '\\listid1',
-        $puce = RtfConstants::PUCE_CIRCLE, 
+        $puce = RtfConstants::PUCE_CIRCLE,
         $type = RtfBulletNFCTypes::Puce,
         $startAt = 1,
         $size = 1,
-        $position = 0 ,
-        $justify = RtfLevelJustification::Left,      
+        $position = 0,
+        $justify = RtfLevelJustification::Left,
     ) {
         $ex_list = $this->_getCreatedOrNewExtends('listtable');
         $template = $ex_list->count() + 1;
-        $v_size = str_pad(dechex($size), 2, STR_PAD_LEFT, '0');
-        $v_pos = $position>0?
-                "\\'".str_pad(dechex($position), 2, STR_PAD_LEFT, '0') : '';
-        // Logger::info('size '.$v_size);
+        $v_size = $size > 0? "\\'".str_pad(dechex($size), 2, STR_PAD_LEFT, '0') :  ' ';
+        $v_pos = $position > 0 ?
+            "\\'" . str_pad(dechex($position), 2, STR_PAD_LEFT, '0') : '';
+   
         $ex_list->append(implode('', [
             '{\\list\\listtemplateid' . $template . '\\listhybrid',
             "{\\listlevel",
             $type,
-            $justify ?? "\\leveljc0", 
+            $justify ?? "\\leveljc0",
             "\\levelfollow0", // tabr
-            "\\levelstartat".$startAt, // start at 
+            "\\levelstartat" . $startAt, // start at 
             "\\levelindent0", // tab supplement 
-            "{\\leveltext\\'".$v_size . $puce . ";}", // tabr
-            "{\\levelnumbers".$v_pos.";}", // no numbers
+            "{\\leveltext" . $v_size . $puce . ";}", // tabr
+            "{\\levelnumbers" . $v_pos . ";}", // no numbers
             // "{\\levelmarker \\{lower-roman\\}}" , // level marker - css level marker - use on macos
             "\\fi-360\\li720", // no numbers
             "}",
@@ -390,7 +282,16 @@ class RtfDocument
      * @param RtfTable $table 
      * @return void 
      */
-    public function table(RtfTable $table){
+    public function table(RtfTable $table)
+    {
+        $this->_update();
+        $this->m_items[] = $table;
+    }
+    public function append(IRtfRender $table)
+    {
+        if (($table instanceof self) || ($table === $this)){
+            igk_die('not allowed');
+        }
         $this->_update();
         $this->m_items[] = $table;
     }
@@ -400,7 +301,8 @@ class RtfDocument
      * @param string $text 
      * @return void 
      */
-    public function linkto(string $url, string $text){
+    public function linkto(string $url, string $text)
+    {
         $this->_update();
         $l = $this->prepareFormat($text);
         $this->m_items[] = sprintf(RtfConstants::LINK_FMT, $url, $l);
@@ -411,7 +313,8 @@ class RtfDocument
      * @param string $text 
      * @return void 
      */
-    public function linktoBookmark(string $id, string $text){
+    public function linktoBookmark(string $id, string $text)
+    {
         $this->_update();
         $l = $this->prepareFormat($text);
         $this->m_items[] = sprintf(RtfConstants::LINK_TO_MARK_FMT, $id, $l);
@@ -422,9 +325,62 @@ class RtfDocument
      * @param string $text 
      * @return void 
      */
-    public function bookmark(string $id, string $text){
+    public function bookmark(string $id, string $text)
+    {
         $this->_update();
         $l = $this->prepareFormat($text);
-        $this->m_items[] = RtfUtility::BookMark($id, $l);
+        $this->m_items[] = RtfUtility::BookMark($id, $l)."\n";
     }
+    public function image(string $path, int $withMm = 70, int $hightMm = 40)
+    {
+        if (!file_exists($path)) {
+            return;
+        }
+        $this->_update();
+        list($width, $height) = getimagesize($path, $info);
+        (!$width || !$height) && igk_die('failed to get image size');
+        $fileinfo  = finfo_open(FILEINFO_MIME_TYPE);
+        $mime_type = finfo_file($fileinfo, $path);
+        $type = igk_getv([
+            'image/png'=>'\pngblip',
+            'image/jpeg'=>'\jpegblip',
+            'image/jpg'=>'\jpegblip',
+            'image/wmp'=>'\wmetafile',
+        ], strtolower($mime_type), '\\dibitmap');
+
+        $this->m_items[] = "\n" . sprintf(
+            implode("", [
+                '{\\pict',
+                '%s',
+                "\\picw%s",
+                "\\pich%s",
+                "\\picwgoal%s",
+                "\\pichgoal%s",
+                "\n" . RtfUtility::ImageToRTFHex($path),
+                '}'
+            ]),
+            $type,
+            $width,
+            $height,
+            RtfUtility::MmToWtips($withMm),
+            RtfUtility::MmToWtips($hightMm),
+        ) . "\n\\par\n";
+    }
+ 
+    public function setAlign($t){
+        $m = igk_getv([
+            0=>'l',
+            1=>'c',
+            2=>'r',
+            3=>'j',
+            'r'=>'r','right'=>'right', 'c'=>'c', 'center'=>'c', 'l'=>'l', 'left'=>'l', 'j'=>'j','justify'=>'j'], $t, 'l');
+        $this->m_states['align']= "\\q".$m;
+    }
+   public function appendItem(string $item){
+        $this->_update();
+        $this->m_items[] = $item;
+   }
+   public function section(){
+        $this->appendItem("\\sect\\sectd \n");
+   }
 }

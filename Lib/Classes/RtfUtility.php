@@ -103,10 +103,12 @@ class RtfUtility extends RtfConstants
         return $value;
     }
 
-    public static function CmToWtips(int $i){
+    public static function CmToWtips(int $i)
+    {
         return $i * 567;
     }
-    public static function MmToWtips(int $i){
+    public static function MmToWtips(int $i)
+    {
         return ceil($i * 56.7);
     }
     /**
@@ -115,9 +117,10 @@ class RtfUtility extends RtfConstants
      * @param null|int $d 
      * @return string|null 
      */
-    public static function GetBorderColor(?int $c, ?int $d=null): ?string{
+    public static function GetBorderColor(?int $c, ?int $d = null): ?string
+    {
         $cl = $c ?? $d;
-        if (!is_null($cl)){
+        if (!is_null($cl)) {
             return sprintf(RtfConstants::BRD_COLOR_FMT, $cl);
         }
         return null;
@@ -128,7 +131,42 @@ class RtfUtility extends RtfConstants
      * @param mixed $text 
      * @return string 
      */
-    public static function BookMark($id, $text){
+    public static function BookMark($id, $text)
+    {
         return sprintf(RtfConstants::BOOK_MARK_FMT, $id, $text, $id);
+    }
+
+    public static function ImageToRTFHex($imagePath)
+    {
+        // Lire l'image
+        $imageData = file_get_contents($imagePath);
+
+        // Convertir en hexadécimal
+        $hexData = bin2hex($imageData);
+
+        // Formater en lignes de 64 caractères
+        $hexLines = str_split($hexData, 64);
+        $formattedHex = implode("\n", $hexLines);
+
+        return $formattedHex;
+    }
+    /**
+     * get list item 
+     * @param string $text 
+     * @param '\\uc0\\u8226' $bullet 
+     * @param mixed $tabPuce 
+     * @param string $id 
+     * @param string $level 
+     * @return string 
+     */
+    public static function List(
+        string $text,
+        $bullet = RtfConstants::PUCE_CIRCLE,
+        $tabPuce = null,
+        $id = '\\ls1',
+        $level = '\\ilvl0'
+    ) {
+        $tabPuce = $tabPuce ?? RtfConstants::TAB_PUCE; 
+        return $tabPuce . sprintf(RtfConstants::LISTITEM_FMT, $id . $level, $bullet, $text) . RtfConstants::LF;
     }
 }
