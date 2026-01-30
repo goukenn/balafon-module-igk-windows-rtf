@@ -1,0 +1,194 @@
+<?php
+// @author: C.A.D. BONDJE DOUE
+// @file: RtfEntryDocument.php
+// @date: 20260129 13:43:18
+namespace igk\Windows\Rtf;
+
+
+/**
+ * 
+ * @package igk\Windows\Rtf
+ * @author C.A.D. BONDJE DOUE
+ */
+abstract class RtfEntryDocument
+{
+
+    protected $m_states;
+    protected $m_items = [];
+    protected $m_citem;
+    public function prepareFormat(string $line)
+    {
+        $line = str_replace([
+            "\r\n",
+            "\n\r",
+        ], ["\n", "\n"], $line);
+
+        $tr = [
+            '°' => "\\'b0",
+            '²' => "\\'b2",
+            '³' => "\\'b3",
+            'µ' => "\\'b5",
+            'à' => "\\'e0",
+            'â' => "\\'e2",
+            'ä' => "\\'e4",
+            'è' => "\\'e8",
+            'é' => "\\'e9",
+            'ê' => "\\'ea",
+            'ë' => "\\'eb",
+            'î' => "\\'ee",
+            'ï' => "\\'ef",
+            'ô' => "\\'f4",
+            'ö' => "\\'f6",
+            'ù' => "\\'f9",
+            'ÿ' => "\\'ff",
+            'û' => "\\'fb",
+            'ü' => "\\'fc",
+            'ç' => "\\'e7",
+            'À' => "\\'c0",
+            'Â' => "\\'c2",
+            'Ä' => "\\'c4",
+            'Ç' => "\\'c7",
+            'È' => "\\'c8",
+            'É' => "\\'c9",
+            'Ê' => "\\'ca",
+            'Ë' => "\\'cb",
+            'Î' => "\\'ce",
+            'Ï' => "\\'cf",
+            'Ô' => "\\'d4",
+            'Ö' => "\\'d6",
+            'Ù' => "\\'d9",
+            'Û' => "\\'db",
+            'Ü' => "\\'dc",
+            // '€' => "\\'80",
+            '€' => "\\u8364?",
+            '«' => "\\'ab",
+            '»' => "\\'bb",
+            '—' => "\\'97",
+            '–' => "\\'96",
+            '£' => "\\'a3",
+        ];
+        $line = strtr($line, $tr);
+        $line = implode(RtfConstants::LF,  explode("\n", $line));
+        return $line;
+    }
+    /**
+     * 
+     * @return void 
+     */
+    public function clearPar()
+    {
+        $this->m_states['clear-par'] = "\\pard";
+    }
+    public function saveState()
+    {
+        $r = $this->m_states;
+        $this->m_states = [];
+        return $r;
+    }
+    /**
+     * 
+     * @param mixed $state 
+     * @return void 
+     */
+    public function restoreState($state)
+    {
+        $this->m_states = $state ?? [];
+    }
+    protected function _update()
+    {
+        if ($this->m_citem) {
+            $this->m_items[] = $this->m_citem;
+            $this->m_citem = null;
+        }
+        $this->storeState();
+    }
+    /**
+     * store State 
+     * @return void 
+     */
+    public function storeState()
+    {
+        if ($this->m_states) {
+            $this->m_items[] = implode('', array_values($this->m_states)) . "\n";
+            $this->m_states = [];
+        }
+    }
+    abstract function render(): string;
+     /**
+     * just append line fied
+     * @return void 
+     */
+    public function ln(){
+        $this->_update();
+        $this->m_items[] = "\\\n";
+    }
+
+    /**
+     * 
+     * @param string $text 
+     * @param int $levelIndex 
+     * @return void 
+     */
+    public function title(string $text, int $levelIndex)
+    {
+        $empty = count($this->m_items);
+        $this->_update();
+        if (!$empty)
+            $this->ln();
+        $this->setFontSize($this->getFontFromLevel($levelIndex));
+        $this->line($text);
+        $this->ln();
+        $this->clearPar();
+    }
+    public function getFontFromLevel($levelIndex)
+    {
+        $rf = igk_getv($this, 'titleFontSizes');
+        return $rf ? igk_getv($rf, $levelIndex) : null;
+    }
+
+    /**
+     * save state
+     * @return mixed 
+     */
+
+    public function line(string $line)
+    {
+        $this->_update();
+        $line = $this->prepareFormat($line);
+        $this->m_citem = sprintf("{" . $line . "}");
+    }
+    public function page()
+    {
+        $this->_update();
+        $this->m_items[] = '\\page' . "\n";
+    }
+    protected function _auto_select(int $index)
+    {
+        return $index < 0 ? ' ' : $index;
+    }
+    /**
+     * 
+     * @param mixed $size 
+     * @return void 
+     */
+    public function setFontSize($size)
+    {
+        $this->m_states['font-size'] = '\\fs' . $this->_auto_select($size * 2);
+    }
+    public function setFont(int $index)
+    {
+        $this->m_states['font'] = '\\f' . $this->_auto_select($index);
+    }
+    public function setTextColor(int $index)
+    {
+        $this->m_states['text-color'] = '\\cf' . $this->_auto_select($index);
+    }
+    public function setBackgroundColor(int $index)
+    {
+        $this->m_states['background-color'] = '\\cb' . $this->_auto_select($index);
+    }
+    public function setStrokeWidth(int $size)
+    {
+        $this->m_states['stroke-width'] = '\\strokewidth' . $this->_auto_select($size);
+    }
+}
