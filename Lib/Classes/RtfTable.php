@@ -19,14 +19,17 @@ class RtfTable implements IRtfRender
      */
     private $m_crow;
 
+    var $firstHeader = false;
     var $rows = [];
     var $def = [];
+    var $colCount = 0;
 
     public function render(): string
     {
         $sb = new StringBuilder;
         $lrow = $this->rows;
         $count = 0;
+        $header = $this->firstHeader;
         while (count($lrow) > 0) {
             $r = array_shift($lrow);
             $is_last = count($lrow) == 0;
@@ -35,14 +38,21 @@ class RtfTable implements IRtfRender
                 $c .= $this->def[$count] . "\n";
             }
             $c .= '\\pard\\intbl ';
+            if ($header){
+                $c.="\\b ";
+            }
             foreach ($r as $ct) {
                 $c .= $ct . '\\cell ';
+            }
+            if ($header){
+                $c.="\\b0 ";
             }
             if ($is_last) {
                 $c .= "\\lastrow";
             }
             $sb->appendLine($c . "\\row");
             $count++;
+            $header=false;
         }
 
         return $sb . '';
@@ -81,7 +91,8 @@ class RtfTable implements IRtfRender
 
         ];
         $fc_transform = function ($a) use ($t_s){
-            return (object)['size'=>$a[1], 
+            return (object)[
+                'size'=>igk_getv($a, 1, 15), 
                 'style'=>igk_getv($t_s, strtolower($a[0]), $a[0]),
                 'color'=>igk_getv($a,2)];
         };
@@ -89,7 +100,7 @@ class RtfTable implements IRtfRender
         foreach ($cells as $i) {
             list($v_numsize, $v_size) = igk_extract($i,'0|size');
             list($v_def, $def) = igk_extract($i,'1|def');
-            $v_size = $v_numsize ?? $v_size; igk_getv($i, 0);
+            $v_size = $v_numsize ?? $v_size;
             $v_def = $v_def?? $def ?? igk_die('missing border definition');
             $v_def = array_map($fc_transform, $v_def);  
 
