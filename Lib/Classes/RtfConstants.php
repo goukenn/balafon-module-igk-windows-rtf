@@ -11,6 +11,8 @@ namespace igk\Windows\Rtf;
 * @author C.A.D. BONDJE DOUE
 */
 abstract class RtfConstants{
+    const LOG = '[rtf] - ';
+    const BulletSeparator = ':.-)=/';
     const LF = "\\\n";
     const SECTION = "\\section";
     const PAGE = "\\page";
@@ -22,6 +24,8 @@ abstract class RtfConstants{
     const LINK_FMT = "{\\field{\\*\\fldinst{HYPERLINK \"%s\"}}{\\fldrslt %s}}";
     const LINK_TO_MARK_FMT = "{\\field{\\*\\fldinst{HYPERLINK \\\\l \"%s\"}}{\\fldrslt %s}}";
     const BOOK_MARK_FMT = "{\\*\\bkmkstart %s}%s{\\*\\bkmkend %s}";
+    const KEEP_NEXT = '\\keepn';
+    const KEEP = '\\keep';
     /**
      *  first line indent 
      * */  
@@ -68,8 +72,18 @@ abstract class RtfConstants{
     const FIELD_NUMPAGE = "{\\field{\\*\\fldinst NUMPAGES}}";
     const PAGENUMBER = "\\chpgn";
 
-    // char type 
+    // char - code command  
     const DBL_CH = "\\dbch";
     const HICH_CH = "\\hich";
     const LOCH_CH = "\\loch";
+
+
+    const ParagrahMargin_FMT = "\\sb%s\\sa%s\\ri%s\\li%s";
+    const MARGIN_BEFORE_FMT="\\sb%s";
+    const MARGIN_AFTER_FMT="\\sa%s";
+
+
+    const ALTERNATE_FONT_FTM = "\\af%s";
+
+    const STYLE_LEVEL_FONT_FTM = "\\s%s";
 }

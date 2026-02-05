@@ -14,6 +14,9 @@ use igk\Windows\Rtf\RtfConstants;
 abstract class ExtendBase{
     var $list =[];
     protected $name;
+    public function clear(){
+        $this->list = [];
+    }
     function append($s){
         $this->list[] = $s;
     }

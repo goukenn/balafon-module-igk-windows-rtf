@@ -13,7 +13,51 @@ use IGK\System\IO\StringBuilder;
  * @author C.A.D. BONDJE DOUE
  */
 class RtfDocument extends RtfEntryDocument
-{ 
+{
+    private static $sm_RENDRING_CONTEXT;
+    private $m_titleFontStyleStyle;
+    private $m_properties = [];
+    var $lang;
+
+    public function setProperties($props){
+        $this->m_properties = $props;
+    }
+    public function __get($name)
+    {
+        if ($this->m_properties){
+            return igk_getv($this->m_properties, $name);
+        }
+    }
+
+
+    public static function RenderingContext(){
+        return self::$sm_RENDRING_CONTEXT>0;
+    }
+    /**
+     * 
+     * @param null|array<int level, styling> $fontDefinition 
+     * @return void 
+     */
+    public function setTitleFontStyle($fontDefinition){
+        $this->m_titleFontStyleStyle = $fontDefinition;
+    }
+    /**
+     * set style sheet 
+     * @param null|array $definition 
+     * @return void 
+     */
+    public function setStyleSheet(?array $definition){
+        $heading_names = [
+            'Normal',
+        ];
+        foreach (range(1,9) as $k=>$value) {
+            $heading_names[] = "Heading ".$value;
+        }
+        foreach($definition as $k=>$v){
+            $n = igk_getv($heading_names, $k );
+            $this->stylesheet[$k] = sprintf("{\\s%s %s %s;}", $k, $v, $n);
+        }
+    }
     /**
      * font indexed
      * @var array
@@ -26,20 +70,41 @@ class RtfDocument extends RtfEntryDocument
     var $titleFontSizes = [];
     var $colors = ['#000'];
     var $fonts = ['\\froman Times New Roman'];
- 
+    /**
+     * style sheet definition 
+     * @var ?array 
+     */
+    var $stylesheet;
+    /**
+     * object of generatorl info 
+     * @var mixed
+     */
+    var $info;
+
+    private $m_listTableRefCount;
     private $m_extends = [];
     private $m_header_state = false;
 
-   
+
+    /**
+     * reference table count 
+     * @return null|int 
+     */
+    public function listTableRefCount(): ?int
+    {
+        return $this->m_listTableRefCount;
+    }
+
     /**
      * get par default tab in  
      * @param int $iMm 
      * @return void 
      */
-    public function setDefaultTab(int $iMm){
-        $this->m_states['default-tab'] = "\\pardeftab". RtfUtility::MmToWtips($iMm);
+    public function setDefaultTab(int $iMm)
+    {
+        $this->m_states['default-tab'] = "\\pardeftab" . RtfUtility::MmToWtips($iMm);
     }
-  
+
     /**
      * reset style 
      * @return void 
@@ -56,10 +121,10 @@ class RtfDocument extends RtfEntryDocument
      */
     public function storeState()
     {
-        if (!$this->m_header_state && $this->m_states){
+        if (!$this->m_header_state && $this->m_states) {
             $this->m_header_state = true;
         }
-        parent::storeState();        
+        parent::storeState();
     }
 
 
@@ -76,7 +141,7 @@ class RtfDocument extends RtfEntryDocument
         $id = '\\ls1',
         $level = '\\ilvl0'
     ) {
-        $this->resetParagrah(); 
+        $this->resetParagrah();
         $this->m_items[] = RtfUtility::List($text, $bullet, $tabPuce, $id, $level);
     }
     /**
@@ -158,14 +223,27 @@ class RtfDocument extends RtfEntryDocument
      */
     public function render(): string
     {
+         
+        self::$sm_RENDRING_CONTEXT++;
         $def = new StringBuilder;
         $c_list = ['\\ansi\\deff0'];
+        if ($this->lang){
+            $c_list[] = $this->lang;
+        }
+        if ($this->info) {
+            $c_list[] = "\n{\\*\\generator " . json_encode($this->info, JSON_UNESCAPED_SLASHES) . "}";
+        }
         $c_list[] = "\n" . RtfUtility::FontTables($this->fonts);
         $c_list[] = "\n" . RtfUtility::ColorTableEntryFromWebColor($this->colors);
-        $this->_update();
+        $this->_update();      
         $c_list[] = "\n";
+        $ln="\n";
         if ($this->m_extends) {
             $c_list = array_merge($c_list, $this->m_extends);
+            $ln='';
+        }
+        if ($this->stylesheet) {
+            $c_list[] = $ln . sprintf(implode("\n",['{\\stylesheet','%s','}']), implode("\n", $this->stylesheet))."\n";
         }
         $c_list = array_merge($c_list, $this->m_items);
         foreach ($c_list as $k) {
@@ -174,6 +252,7 @@ class RtfDocument extends RtfEntryDocument
             }
             $def->append($k);
         }
+        self::$sm_RENDRING_CONTEXT--;
         return sprintf(RtfConstants::DOC_FMT, $def . '');
     }
     /**
@@ -196,8 +275,13 @@ class RtfDocument extends RtfEntryDocument
     {
         $this->_update();
         $l = $this->prepareFormat($header);
-        $this->m_items[] = sprintf("{\\header %s\\par}\n", $l);
+        $this->m_items[] = RtfUtility::Header($l);
     }
+    /**
+     * 
+     * @param string $note 
+     * @return void 
+     */
     public function setFooterNote(string $note)
     {
         $this->_update();
@@ -211,9 +295,57 @@ class RtfDocument extends RtfEntryDocument
             $this->m_extends[$name] =  $ex_list;
         }
         return $ex_list;
+    } 
+    /**
+     * 
+     * @param mixed $r 
+     * @return object 
+     */
+    public function initMenuList($r){
+        $ex_list = $this->_getCreatedOrNewExtends('listtable');   
+        $id = "\\ls";
+        if (!$ex_list->support($r->root)){
+            $template = $ex_list->updateRefCount()->getRefCount();
+            $id.= $template;
+            $listid = "\\listid".$template;
+            $ex_list->append(new RtfListDefinitionRendering($template, $id, $listid , $r));
+            // register 
+            $ex_list = $this->_getCreatedOrNewExtends('listoverridetable');
+            $ex_list->append(implode('', [
+                "{\\listoverride",
+                $listid,
+                "\\listoverridecount0",
+                $id,
+                "}"
+            ]));
+        } else {
+            $sinfo = $ex_list->info($r->root);
+            $sinfo->update($r);
+            $id = $sinfo->id();
+        }
+
+        return (object)[
+            'id'=>$id
+        ];
+    }
+    /**
+     */
+    public function getTitleStyleId(int $level): ?string{
+        
+        if (isset($this->stylesheet[$level]))
+            return "\\s".($level).$this->getTitleFontStyle($level);
+        return null;
     }
     /**
      * 
+     * @param int $level 
+     * @return mixed 
+     */
+    public function getTitleFontStyle(int $level){
+        return igk_getv($this->m_titleFontStyleStyle,$level);
+    }
+    /**
+     * create a list override for this document 
      * @param string $id 
      * @param string $listid 
      * @param string $puce 
@@ -221,6 +353,7 @@ class RtfDocument extends RtfEntryDocument
      * @param int $startAt 
      * @param int $size size of the puce marker - in case of place holder 
      * @param int $position 
+     * @param ?string|'upper-alpha' $levelmarker 
      * @return void 
      */
     public function listOverride(
@@ -232,14 +365,17 @@ class RtfDocument extends RtfEntryDocument
         $size = 1,
         $position = 0,
         $justify = RtfLevelJustification::Left,
+        ?string $levelmarker = null,
+        ?int $levelid = null
     ) {
         $ex_list = $this->_getCreatedOrNewExtends('listtable');
-        $template = $ex_list->count() + 1;
-        $v_size = $size > 0? "\\'".str_pad(dechex($size), 2, STR_PAD_LEFT, '0') :  ' ';
+        $template = $ex_list->updateRefCount()->getRefCount();
+        $v_size = $size > 0 ? "\\'" . RtfUtility::ToHex($size) :  ' ';
+        $this->m_listTableRefCount = $template;
         $v_pos = $position > 0 ?
-            "\\'" . str_pad(dechex($position), 2, STR_PAD_LEFT, '0') : '';
-   
-        $ex_list->append(implode('', [
+            "\\'" . RtfUtility::ToHex($position) : '';
+
+        $ex_list->append(implode('', array_filter([
             '{\\list\\listtemplateid' . $template . '\\listhybrid',
             "{\\listlevel",
             $type,
@@ -247,14 +383,16 @@ class RtfDocument extends RtfEntryDocument
             "\\levelfollow0", // tabr
             "\\levelstartat" . $startAt, // start at 
             "\\levelindent0", // tab supplement 
-            "{\\leveltext" . $v_size . $puce . ";}", // tabr
+            "{\\leveltext" . $v_size . $puce . ";",
+            $levelid ? "\\leveltemplateid" . $levelid : '',
+            "}", // tabr
             "{\\levelnumbers" . $v_pos . ";}", // no numbers
-            // "{\\levelmarker \\{lower-roman\\}}" , // level marker - css level marker - use on macos
+            $levelmarker ? "{\\*\\levelmarker \\{" . $levelmarker . "\\}}" : null, // level marker - css level marker - use on macos
             "\\fi-360\\li720", // no numbers
             "}",
             $listid,
             '}'
-        ]));
+        ])));
         $ex_list = $this->_getCreatedOrNewExtends('listoverridetable');
         $ex_list->append(implode('', [
             "{\\listoverride",
@@ -289,7 +427,7 @@ class RtfDocument extends RtfEntryDocument
     }
     public function append(IRtfRender $table)
     {
-        if (($table instanceof self) || ($table === $this)){
+        if (($table instanceof self) || ($table === $this)) {
             igk_die('not allowed');
         }
         $this->_update();
@@ -329,7 +467,7 @@ class RtfDocument extends RtfEntryDocument
     {
         $this->_update();
         $l = $this->prepareFormat($text);
-        $this->m_items[] = RtfUtility::BookMark($id, $l)."\n";
+        $this->m_items[] = RtfUtility::BookMark($id, $l) . "\n";
     }
     public function image(string $path, int $withMm = 70, int $hightMm = 40)
     {
@@ -342,10 +480,10 @@ class RtfDocument extends RtfEntryDocument
         $fileinfo  = finfo_open(FILEINFO_MIME_TYPE);
         $mime_type = finfo_file($fileinfo, $path);
         $type = igk_getv([
-            'image/png'=>'\pngblip',
-            'image/jpeg'=>'\jpegblip',
-            'image/jpg'=>'\jpegblip',
-            'image/wmp'=>'\wmetafile',
+            'image/png' => '\pngblip',
+            'image/jpeg' => '\jpegblip',
+            'image/jpg' => '\jpegblip',
+            'image/wmp' => '\wmetafile',
         ], strtolower($mime_type), '\\dibitmap');
 
         $this->m_items[] = "\n" . sprintf(
@@ -366,21 +504,52 @@ class RtfDocument extends RtfEntryDocument
             RtfUtility::MmToWtips($hightMm),
         ) . "\n\\par\n";
     }
- 
-    public function setAlign($t){
+
+    public function setAlign($t)
+    {
         $m = igk_getv([
-            0=>'l',
-            1=>'c',
-            2=>'r',
-            3=>'j',
-            'r'=>'r','right'=>'right', 'c'=>'c', 'center'=>'c', 'l'=>'l', 'left'=>'l', 'j'=>'j','justify'=>'j'], $t, 'l');
-        $this->m_states['align']= "\\q".$m;
+            0 => 'l',
+            1 => 'c',
+            2 => 'r',
+            3 => 'j',
+            'r' => 'r',
+            'right' => 'right',
+            'c' => 'c',
+            'center' => 'c',
+            'l' => 'l',
+            'left' => 'l',
+            'j' => 'j',
+            'justify' => 'j'
+        ], $t, 'l');
+        $this->m_states['align'] = "\\q" . $m;
     }
-   public function appendItem(string $item){
+    /**
+     * append string item 
+     * @param string $item 
+     * @return void 
+     */
+    public function appendItem(string $item)
+    {
         $this->_update();
         $this->m_items[] = $item;
-   }
-   public function section(){
-        $this->appendItem("\\sect\\sectd \n");
-   }
+    }
+    /**
+     * create a new section 
+     * @return void 
+     */
+    public function section()
+    {
+        $this->appendItem(sprintf("\\sect\\sectd%s -\n", implode([$this->lang])));
+    }
+    /**
+     * 
+     * @param string $value 
+     * @param string $style 
+     * @return void 
+     */
+    public function markStyle(string $value, $style = "\\s1")
+    {
+        $this->_update();
+        $this->m_items[] = RtfUtility::MarkStyle($value, $style);
+    }
 }

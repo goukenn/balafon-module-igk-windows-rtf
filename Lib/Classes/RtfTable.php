@@ -30,6 +30,7 @@ class RtfTable implements IRtfRender
         $lrow = $this->rows;
         $count = 0;
         $header = $this->firstHeader;
+        $sb->appendLine('{\\trow');
         while (count($lrow) > 0) {
             $r = array_shift($lrow);
             $is_last = count($lrow) == 0;
@@ -54,7 +55,7 @@ class RtfTable implements IRtfRender
             $count++;
             $header=false;
         }
-
+        $sb->appendLine('}');
         return $sb . '';
     }
     /**
