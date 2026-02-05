@@ -7,6 +7,12 @@ in you .md file insert a special markup
 ```sh
 [\section]{h:"Markup title %f_page-right%"}
 ```
-- every title will `\keepn`
+- every title will have the `\keepn` format flag
+
+usage via balafon cli 
+
+```sh
+balafon --rft:convert input_file.md ouput_file.rtf
+```
 
 @C.A.D.BONDJEDOUE
