@@ -93,9 +93,9 @@ class RtfMarkdown
             IRtfFontStyleDefinition::class,
             ['fontFamily' => 5, 'paragrahBgColor' => 6, 'fontSize' => 8]
         ));
-        $listener->emptyOutputListener = function () use ($g) {
-            return empty($g->getOutput());
-        };
+        // $listener->emptyOutputListener = function () use ($g): bool {
+        //     return empty($g->getOutput());
+        // };
         $g->setOutputTreatmentListener($listener);
 
         $o = $g->transform($md,null,null);

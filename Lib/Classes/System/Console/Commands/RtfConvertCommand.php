@@ -5,6 +5,7 @@
 namespace igk\Windows\Rtf\System\Console\Commands;
 
 use IGK\System\Console\AppExecCommand;
+use igk\Windows\Rtf\RtfToMarkdown;
 
 /**
 * 

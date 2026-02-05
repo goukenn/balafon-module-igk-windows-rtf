@@ -4,7 +4,8 @@
 // @date: 20260128 18:51:29
 namespace igk\Windows\Rtf\Converter;
 
-use IGK\System\IO\StringBuilder;
+
+use igk\Windows\Rtf\RtfMarkdown;
 
 /**
 * help convert mardown document to rtf 
@@ -13,9 +14,12 @@ use IGK\System\IO\StringBuilder;
 */
 class MarkdownToRtf{
     
+    /**
+     * convert string markdown do rtf document 
+     * @param string $source 
+     * @return string 
+     */
     public function convert(string $source): string{
-        $sb = new StringBuilder;
-
-        return $sb.'';
+      return RtfMarkdown::Convert($source);
     }
 }
