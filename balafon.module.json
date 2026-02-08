@@ -3,5 +3,11 @@
     "author": "C.A.D. BONDJE DOUE",
     "version": "1.0",
     "description":"windows rtf module support",
-    "require": null
+    "require": null,
+    "contributions":[
+        "language",
+        "Command",
+        "File Content Converter",
+        ""
+    ]
 }

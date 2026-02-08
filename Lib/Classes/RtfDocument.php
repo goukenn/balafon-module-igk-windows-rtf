@@ -539,7 +539,7 @@ class RtfDocument extends RtfEntryDocument
      */
     public function section()
     {
-        $this->appendItem(sprintf("\\sect\\sectd%s -\n", implode([$this->lang])));
+        $this->appendItem(sprintf("\\sect\\sectd%s \n", implode([$this->lang])));
     }
     /**
      * 

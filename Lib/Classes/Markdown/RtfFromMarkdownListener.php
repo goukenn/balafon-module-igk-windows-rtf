@@ -20,6 +20,7 @@ use igk\Windows\Rtf\RtfTable;
 use igk\Windows\Rtf\RtfUtility;
 
 
+
 /**
  * listener used to transform markdown -> rtf  
  * @package igk\Windows\Rtf\Markdown
@@ -210,7 +211,7 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
 
             if (($g == null) && ($this->m_citem)) {
                 if (!$options['isSubState'] && !empty($options['buffer'])) {
-                    Logger::warn('update buffer');
+                    igk_is_debug() && Logger::warn('[markdown-listener] - update buffer');
                     $this->appendToOutput($options['buffer']);
                     $options['buffer'] = '';
                 }
@@ -518,24 +519,24 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
         $value = $this->_prepareFormat($value);
         return sprintf("{%s}", implode(" ", [$style, $value]));
     }
+    private $ch_symbols;
+    public function toLitteralUri(string $v){
+        if (is_null($this->ch_symbols)){
+            $t = RtfConstants::GetCharSymbols();
+            $this->ch_symbols = array_flip($t);
+        }
+        return strtr($v, $this->ch_symbols); 
+    }
     private function _filter_text_uri_block(string $value, $d, $n, $g): string
     {
         $style = $this->_res_style('link');
-        $uri = $g->captures['uri'][0];
-        $text = $g->captures['text'][0];
+        $uri =  $this->toLitteralUri($this->_prepareFormat($g->captures['uri'][0]));
+        $text =  $this->_prepareFormat($g->captures['text'][0]);
 
         if (preg_match("/^#/", $uri)) {
             $c = substr($uri, 1);
             $c = StringUtility::RemoveAccents($c);
-            // $c = strtr($c, [
-            //     "à"=>"a",
-            //     "ä"=>"a",
-            //     "â"=>"a",                
-            //     "é"=>"e",
-            //     "ë"=>"e",
-            //     "ê"=>"e",
-            //     "è"=>"e",
-            // ]);
+           
 
             $value = sprintf(RtfUtility::LINK_TO_MARK_FMT, $c, $text);
         } else {
