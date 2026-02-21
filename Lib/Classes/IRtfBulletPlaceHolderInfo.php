@@ -9,13 +9,14 @@ namespace igk\Windows\Rtf;
 * 
 * @package igk\Windows\Rtf
 * @author C.A.D. BONDJE DOUE
-* @property ?string $placeholder
-* @property ?string $type
-* @property ?array  $list
-* @property ?array  $root
-* @property ?array  $level
+* @property ?string  $placeholder
+* @property ?string  $type
+* @property ?array   $list
+* @property ?array   $root
+* @property ?array   $level
 * @property ?string  $from
 * @property mixed  $bulletDefinition
+* @property mixed  $info
 */
 interface IRtfBulletPlaceHolderInfo{
 

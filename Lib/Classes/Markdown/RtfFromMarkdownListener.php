@@ -11,15 +11,12 @@ use IGK\System\IO\Markdown\IMarkdownFilterHost;
 use IGK\System\IO\Markdown\MarkdownConverter;
 use IGK\System\Regex\Replacement;
 use IGK\System\Text\Regex;
-use IGK\System\Text\RegexMatcherUtility;
-use IGK\System\Text\RegexReplaceContent;
 use igk\Windows\Rtf\RtfBulletNFCTypes;
 use igk\Windows\Rtf\RtfConstants;
 use igk\Windows\Rtf\RtfLevelJustification;
 use igk\Windows\Rtf\RtfTable;
 use igk\Windows\Rtf\RtfUtility;
-
-
+use igk\Windows\Rtf\RtfLevelList;
 
 /**
  * listener used to transform markdown -> rtf  
@@ -29,12 +26,15 @@ use igk\Windows\Rtf\RtfUtility;
 class RtfFromMarkdownListener implements IMarkdownElementListener
 {
     const TableSize = 165;
+    const OUTPUT_KDP = 'pdp';
+    const OUTPUT_HTML = 'html';
     /**
      * 
      * @var IMarkdownFilterHost
      */
     private $m_host;
     private $m_headerReplacement;
+    private $m_level_marker;
 
 
     // TODO - view As mardown 
@@ -43,12 +43,48 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
      * @var mixed
      */
     private $ln_flag = false;
-    var $ignoreConsecutiveLF = false;
-    var $titleColorIndexes = [];
     private $m_citem; // current item 
-    // private $m_buffer;
     private $m_styles;
     private $m_list_style_model = [];
+
+    /**
+     * paragraph line feed flag 
+     * @var mixed
+     */
+    private $m_flag_par_lf;
+    /**
+     * reset bullet definition flags
+     * @var ?bool
+     */
+    private $m_resetBulletDefinition;
+
+
+    /**
+     * 
+     * @var bool
+     */
+    var $ignoreConsecutiveLF = false;
+    /**
+     * 
+     * @var array
+     */
+    var $titleColorIndexes = [];
+    /**
+     * with page 
+     * @var ?bool
+     */
+    var $withPage;
+    /**
+     * for uri handle base uri
+     * @var mixed
+     */
+    var $baseURL;
+    /**
+     * default is kdp
+     * @var 'pdp'|'html'|'rtf'
+     */
+    var $outputType = self::OUTPUT_KDP;
+    // private $m_buffer;
     /**
      * quote font index
      * @var mixed
@@ -73,6 +109,10 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
     var $appendOutputListener;
     var $lf = "\n";
 
+    public function postTreatOutput(string $input):string {
+        $input = preg_replace('/\\\\\n(\\\pard\\s*)+$/', '', $input);
+        return $input;
+    }
     /**
      * d - 
      * @return void 
@@ -80,6 +120,25 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
     public function setHeaderReplacement($rt)
     {
         $this->m_headerReplacement = $rt;
+    }
+
+    public function resetBulletDefinition()
+    {
+        $this->m_resetBulletDefinition = true;
+        if ($v_listtable = $this->m_host->getListTable()) {
+            $v_listtable->resetDefinition();
+        }
+        $this->m_renderListItem = null;
+    }
+    private $m_renderListItem;
+
+    /**
+     * 
+     * @return mixed 
+     */
+    public function getRenderListItems()
+    {
+        return $this->m_renderListItem;
     }
     /**
      * 
@@ -126,10 +185,21 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
      */
     protected function appendToOutput($s)
     {
-        igk_is_debug() && Logger::warn('append: ' . $s);
+        igk_is_debug() && Logger::warn('append: [' . $s . ']');
         if ($r = $this->appendOutputListener) {
             $r($s);
         }
+    }
+    /**
+     * lrevel list item 
+     * @return mixed 
+     */
+    protected function getLevelListItem()
+    {
+        if (is_null($this->m_renderListItem)) {
+            $this->m_renderListItem = new RtfLevelList;
+        }
+        return $this->m_renderListItem;
     }
 
     public function didStateChanged()
@@ -138,18 +208,29 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
             $this->m_citem = null;
         }
     }
-    // private function _preset_buffer(?string $buffer)
-    // {
-    //     $this->m_buffer = $buffer;
-    // }
 
     protected function _willtreat_text_litteral_string($v)
     {
         return $v;
     }
+    /**
+     * 
+     * @param mixed $v 
+     * @return mixed 
+     */
     protected function _willtreat_tag_definition($v)
     {
         return $v;
+    }
+    /**
+     * 
+     * @param mixed $v 
+     * @return string 
+     */
+    protected function _willtreat_code_block($v)
+    {
+        $v = $this->_escape($v);
+        return "\\i " . $v . "\i0 ";
     }
     protected function _willtreat_text_bold($v)
     {
@@ -186,16 +267,8 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
     public function filter($token_id, $value, bool $root, $callback = null, $capture = null, $options = null)
     {
         $_prefix = $root ? '_filter_' : '_willtreat_';
-        // 
-        // if (!$options['isSubState'] && ($fc = igk_getv([
-        //     'line-feed'=>function($options){
-        //         igk_wln(__FILE__.":".__LINE__ , $options);
-        //     }
-        // ], $token_id ))){
-        //     $fc($options,$value);
-        // }
-        if ($i = $this->m_citem) {
 
+        if ($i = $this->m_citem) {
             switch ($i->type) {
                 case 'lf':
                     if (!in_array($token_id, ['empty-line', 'line-feed'])) {
@@ -262,6 +335,10 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
         }
         return '';
     }
+    /**
+     * 
+     * @return mixed|true 
+     */
     public function isEmpty()
     {
         if ($this->emptyOutputListener) {
@@ -270,6 +347,11 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
         }
         return true;
     }
+    /**
+     * 
+     * @param mixed $v 
+     * @return string 
+     */
     private function _prepareFormat($v)
     {
         return $this->m_host->prepareFormat($v);
@@ -296,11 +378,18 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
             $list
         ));
     }
+    /**
+     * 
+     * @param string $name 
+     * @param mixed $args 
+     * @param mixed $g 
+     * @return mixed 
+     */
     private function _instruct(string $name, $args, $g = null)
     {
         $st = igk_getv([
-            'pagebreak' => "\\page\n",
-            'page-break' => "\\page\n",
+            'pagebreak' => "\\page ",
+            'page-break' => "\\page ",
             'section' => function ($args) {
                 $t = ["\\sect\\sectd \n"];
                 if ($args) {
@@ -324,8 +413,14 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
         if ($st instanceof \Closure) {
             return $st($args, $g);
         }
+        $this->ln_flag = true;
         return $st;
     }
+    /**
+     * 
+     * @param mixed $rp 
+     * @return void 
+     */
     public function initHeaderFormatReplacement($rp)
     {
         if ($r = $this->m_headerReplacement) {
@@ -334,7 +429,7 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
             }
             return;
         }
-        $rp->add('/%f_page-right%/', '\\tx9360\\tab{\\qr\\chpgn}');
+        $rp->add('/%f_page-right%/', sprintf('\\tx9360\\tab{\\qr%s}', RtfConstants::PAGENUMBER));
     }
     private function _filter_md_instruction_start($value, $r, $callback, $g)
     {
@@ -449,7 +544,11 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
             if ($this->m_citem && ($this->m_citem->type != 'lf')) {
                 if ($this->m_citem->lf_end) {
                     $this->updateCurrentItem();
-                    $this->_create_lf(true);
+                    if ($this->m_flag_par_lf) {
+                        $this->m_flag_par_lf = false;
+                    } else {
+                        $this->_create_lf(true);
+                    }
                 } else
                     $this->m_citem->lf_end = true;
             }
@@ -487,7 +586,7 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
     }
     private function _filter_text_litteral_string(string $value)
     {
-        return $value;
+        return $this->_prepareAndEscape($value);
     }
 
     private function _res_style($key, &$pardef = null)
@@ -512,20 +611,29 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
         }
         return $style;
     }
+    protected function _escape_code(string $value)
+    {
+        //preg_match('/(?!<=\\\)\\\(?=[^\'])/', $value, $tab);
+        $src = preg_replace('/(?!<=\\\)\\\(?=[^\'u\{\}]|$)/', '\\\\\\', $value);
+
+        return $src;
+    }
     private function _filter_code_block(string $value)
     {
         $value = substr($value, 1, -1);
         $style = $this->_res_style('inline-code');
-        $value = $this->_prepareFormat($value);
+        $value = $this->_escape_code($value);
+        $value = $this->_prepareAndEscape($value);
         return sprintf("{%s}", implode(" ", [$style, $value]));
     }
     private $ch_symbols;
-    public function toLitteralUri(string $v){
-        if (is_null($this->ch_symbols)){
+    public function toLitteralUri(string $v)
+    {
+        if (is_null($this->ch_symbols)) {
             $t = RtfConstants::GetCharSymbols();
             $this->ch_symbols = array_flip($t);
         }
-        return strtr($v, $this->ch_symbols); 
+        return strtr($v, $this->ch_symbols);
     }
     private function _filter_text_uri_block(string $value, $d, $n, $g): string
     {
@@ -536,7 +644,7 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
         if (preg_match("/^#/", $uri)) {
             $c = substr($uri, 1);
             $c = StringUtility::RemoveAccents($c);
-           
+
 
             $value = sprintf(RtfUtility::LINK_TO_MARK_FMT, $c, $text);
         } else {
@@ -544,12 +652,22 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
         }
         return sprintf("{%s}", implode(" ", array_filter([$style, $value])));
     }
+    private function _filter_task_list_item(string $value)
+    {
+        return $this->_prepareFormat($value);
+    }
     private function _filter_fence_code(string $value, $d, $n, $captures): string
     {
         $style = $this->_res_style('fence-code', $pardef);
         $name = isset($captures->beginCaptures['name']) ? igk_getv($captures->beginCaptures['name'], 0) : null;
-        $value = substr($value, strlen($name) + 4, -4);
-        $value = str_replace("\n", "\\\n", $this->_prepareAndEscape($value));
+        $offset = 0;
+        if ($name) {
+            $offset = strlen($name);
+        }
+        $value = substr($value, $offset + 4, -4);
+        $value = $this->_escape_code($value);
+        $value = $this->_prepareAndEscape($value);
+        $value = str_replace("\n", "\\\n", $value);
         return sprintf("\\pard" . $pardef . "\n{%s}\\\n\\pard ", implode(" ", array_filter([$style, $value])));
     }
     private function _filter_order_list_item($value, $c, $callback, $g)
@@ -560,6 +678,16 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
         return self::_BuildList($value, 'olist', $g->tokenID, $this->m_olist_ids, $this, RtfBulletNFCTypes::Decimal, "\\'00. ", 3, 1, 1);
     }
     private $m_olist_ids;
+    private function getIds($list)
+    {
+        $idx = count($list) + 10;
+        if ($table = $this->m_host->getListTableNewIds()) {
+            return $table;
+        }
+
+
+        return $idx;
+    }
     private static function _BuildList($value, $_LS, $token_id,  &$list, $q, $type = RtfBulletNFCTypes::Puce, $format = RtfConstants::PUCE_CIRCLE, $size = 1, $startAt = 1, $position = 0)
     {
         $cond2 = false;
@@ -574,7 +702,7 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
             $q->m_citem = $q->_create_new_item($_LS, $token_id);
             $q->m_citem->depth = 0;
             $q->m_citem->format = '{%s}' . "\n";
-            $idx = count($list) + 10;
+            $idx = $q->getIds($list);
             $q->m_citem->listid = '\\ls' . $idx;
             $q->listOverride($q->m_citem->listid, "\\listid" . $idx, $format, $type, $startAt, $size, $position);
             $list[] = $q->m_citem->listid;
@@ -655,9 +783,13 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
      */
     public function rtrimOutput(string $output)
     {
-        $c = rtrim($output);
+        $c = rtrim($output, ' ');
+        $g = strlen($output) > strlen($c);
         if (igk_str_endwith($c, "\\")) {
             $c .= "\n";
+            if ($g) {
+                $c .= ' ';
+            }
             $output = $c;
         }
         return $output;
@@ -673,19 +805,22 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
      * @param null|string $slug 
      * @return string 
      */
-    public function title($text, int $level, ?string $slug = null): string
+    public function title(string $text, int $level, ?string $slug = null): string
     {
         igk_is_debug() && Logger::info('write title ' . $text);
+
         $hmark = '';
         if ($slug) {
-            if (false !== ($pos = strpos($text, '{'))) {
+            if ((false !== ($pos = strpos($text, '{'))) && ($pos > 0)) {
                 $cpos = $pos;
-                igk_str_read_brank($text, $cpos, '}', '{');
-                $text = substr($text, 0, $pos) . substr($text, $cpos + 1);
-                $hmark = RtfUtility::BookMark(igk_str_rm_start($slug, '#', 1), '');
-            } else{
-                $hmark = RtfUtility::BookMark($slug, '');
+                $cp = igk_str_read_brank($text, $cpos, '}', '{');
+                if (preg_match('/\{\\s*#\}$/', $cp)) {
+                    $text = substr($text, 0, $pos) . substr($text, $cpos + 1);
+                    $hmark = RtfUtility::BookMark(igk_str_rm_start($slug, '#', 1), '');
+                }
             }
+            $slug = $this->_to_ai_slug($slug);
+            $hmark = RtfUtility::BookMark($slug, '');
         }
 
         $size = igk_getv($this->m_host->titleFontSizes, $level);
@@ -694,22 +829,29 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
         $suffix = '';
         $this->updateCurrentItem();
         $style = '\\fs' . ($size * 2) . '\\f' . $ft . '\\cf' . $clindex;
+
         if ($level > 1) { // on greater markdown title level check of bullet place holder 
             // TODO: just apply markdown maker list format - BULLET DETECTION
             // detect list marker 
             $v = $text;
             $r = RtfUtility::BulletPlaceHolderInfo($v);
+
             if (!is_null($r)) {
-                $p = $this->_initListMenu($r);
+                $v_tlevel = $r->level == 0 ? $level : $r->level + $level;
+                $v_newItem = false;
+                $this->_updateLevelList($v_tlevel, $r, $v_newItem);
+                $p = $this->_initListMenu($r, $v_newItem);
                 $v = $this->_prepareFormat(ltrim(substr($v, strlen($r->from) + 1)));
                 $v = RtfUtility::List($v, $r->from, null, $p->id, "\\ilvl" . $r->level);
-                $text = $this->m_host->getTitleStyleId($r->level + 2) . $v;
+                $text = $this->m_host->getTitleStyleId($v_tlevel) . $v;
             } else {
                 // $hmark = $this->m_host->getTitleStyleId($level);
-                $text = $this->_prepareFormat($text);
+                $text = $this->_prepareFormat($text) . "\\par";
                 $style = $this->m_host->getTitleStyleId($level) ?? $style;
+                $this->m_flag_par_lf = true;
             }
         } else {
+            $this->resetBulletDefinition();
             $text = $this->_prepareFormat($text);
             $lv = $this->m_host->getTitleStyleId(1);
             $text = sprintf("{%s %s\\\n}\\pard", $lv ?? '\\s1', $text);
@@ -724,6 +866,65 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
         $this->m_citem->value[] = $v;
         $this->m_citem->lf_end = true;
         return '';
+    }
+    private function _updateLevelList($level, $r, &$newItem = false)
+    {
+        $root = $r->root;
+        $v_bulletlist = $this->getLevelListItem();
+        if ($v_bulletlist->start()) {
+            $v_bulletlist->setLevel($level);
+            $v_bulletlist->setRoot($root);
+        } else {
+            $v_lv = $v_bulletlist->getLevel();
+            $v_same_root = $v_bulletlist->getRoot() == $root;
+            $v_glevel = $v_lv < $level;
+            if ($v_same_root && $v_glevel) {
+                // subchilds 
+                $n = new RtfLevelList;
+                $n->setLevel($level);
+                $n->setRoot($root);
+                $v_bulletlist->append($n);
+                $this->m_renderListItem = $n;
+                $newItem = true;
+            } else {
+                if ($v_lv > $level) {
+                    $this->m_renderListItem = $this->_getMoveToParentListItem($v_bulletlist, $level, $root);
+                }
+            }
+        }
+    }
+    /**
+     * 
+     * @param mixed $p 
+     * @param mixed $level 
+     * @param mixed $root 
+     * @return mixed|null 
+     */
+    private function _getMoveToParentListItem($p, $level, $root)
+    {
+        while ($q = $p->getParent()) {
+            $this->m_host->popupBulletList($p->getRoot());
+            if (($q->getRoot() == $root) && ($level == $q->getLevel())) {
+                return $q;
+            }
+            $p = $q;
+        }
+        // igk_die('missing parent with the requested level definition');
+        return null;
+    }
+    /**
+     * 
+     * @param string $slug 
+     * @return string 
+     */
+    private function _to_ai_slug(string $slug)
+    {
+
+        if (preg_match('/^[a-z]+(-\\d+)+/i', $slug, $tab)) {
+            $g = str_replace('-', '', $tab[0]);
+            $slug = $g . substr($slug, strlen($tab[0]));
+        }
+        return $slug;
     }
     private $m_title_menu_id;
     /**
@@ -753,68 +954,35 @@ class RtfFromMarkdownListener implements IMarkdownElementListener
     /**
      * 
      * @param mixed $i 
+     * @param bool $startnew
      * @return mixed
      */
-    protected function _initListMenu($i)
+    protected function _initListMenu($i, bool $startnew = false)
     {
-
-        return $this->m_host->initMenuList($i);
+        $v_list = $this->m_host->initMenuList($i, $startnew);
+        return $v_list;
     }
-    // /**
-    //  * 
-    //  * @param mixed $c 
-    //  * @return mixed|object 
-    //  * @deprecated init _initListMenu 
-    //  */
-    // private function _formatMenuInfo($c, $reset=false)
-    // {
-    //     $format = trim($c);
-    //     $ftp = true;
-    //     if (preg_match("/(([a-zA-Z0-9]+)\.?)$/", $format, $tab)){
-    //         $ftp = is_numeric($tab[2]);
-    //         $ref = substr($format, strlen($tab[2]));
-    //         $format = "\\'00".$ref.' ';
-    //     }
-    //     if (!$reset && isset($this->m_list_style_model[$format])){
-    //         // if (isset($this->m_title_menu_id[$format])){
-    //         //     return $this->m_title_menu_id[$format];
-    //         // }
-    //         return $this->m_list_style_model[$format];
-    //     }
-    //     $c_i = $this->m_host->listTableRefCount()+1;        
-    //     $id = '\\ls'.$c_i;
-    //     $lid = '\\listid'.$c_i;
-    //     $size = strlen($format)-3;
-    //     $this->listOverride($id, $lid, 
-    //     $format, 
-    //     // RtfConstants::PUCE_CIRCLE, 
-    //     // "\\uc0\\u9642 ",
-    //     //"\\'00.",
-    //     // RtfBulletNFCTypes::Puce.
-    //     ($ftp ? 
-    //     RtfBulletNFCTypes::Decimal:
-    //     RtfBulletNFCTypes::NewLatinUpper),
-    //     1, 
-    //     $size,
-    //     1,
-    //     RtfLevelJustification::Left,
-    //     'square',
-    //     );
-    //     // RtfBulletNFCTypes::LatinUpper. 
-    //     // RtfBulletNFCTypes::NewLatinUpper, 
-    //     // 1, strlen($format)-3, 1);
 
-    //     //$this->m_title_menu_id[$format] = $p;
-    //     $p = $this->m_list_style_model[$format] = (object)['id'=>$id, 'format'=>$format];
-    //     return $p;
-    // }
+
+    /**
+     * 
+     * @return void 
+     */
     public function resetChapter()
     {
         $this->m_title_menu_id = null;
     }
+    /**
+     * 
+     * @param mixed $text 
+     * @return string 
+     */
     public function par($text): string
     {
-        return "\\pard\n" . $this->_prepareFormat($text);
+        $g = $this->_prepareFormat($text);
+        if ($g == "\n")
+            $g = '';
+        return "\\pard\n" . $g;
     }
     /**
      * 

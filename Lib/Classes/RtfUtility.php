@@ -5,6 +5,7 @@
 namespace igk\Windows\Rtf;
 
 use IGK\Helper\Activator;
+use IGK\System\Console\Logger;
 use IGK\System\Drawing\Colorf;
 use IGK\System\Number;
 use IGK\System\Text\RegexMatcherContainer;
@@ -28,7 +29,7 @@ class RtfUtility extends RtfConstants
     private static function _SplitPlaceHolderStringDetection(string $haystack)
     {
         $rl = [];
-        if (preg_match('/^\\b[a-zA-Z\\-\\p{L}]{1,}\\b\\s+/u',ltrim($haystack))){
+        if (preg_match('/^\\b[a-zA-Z\\-\\p{L}]{1,}\\b(\'|\\s+)/u',ltrim($haystack))){
             return $rl;
         }
         $regex = new RegexMatcherContainer;
@@ -42,9 +43,12 @@ class RtfUtility extends RtfConstants
         $toffset = 0;
         while ($g = $regex->detect($src, $pos)) {
             if ($e = $regex->end($g, $src, $pos)) {
-                igk_debug_wln('split-:'.$e->tokenID , "value: ".$e->value);
+                igk_is_debug() ?? Logger::info('split-:'.$e->tokenID , "value: ".$e->value);
                 if ($e->tokenID == 'string') {
                     $g = substr($src, $toffset, $e->from);
+                    if (($e->to == strlen($src)) && ((!igk_str_endwith($e->value,$e->value[0])))){                        
+                        return [];
+                    }
                     if (!empty($g)) {
                         $rl[] = $g;
                     }

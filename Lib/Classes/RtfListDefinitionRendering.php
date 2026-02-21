@@ -43,7 +43,11 @@ class RtfListDefinitionRendering{
         return $this->m_id;
     }
      
-    public function render()
+    /**
+     * 
+     * @return string 
+     */
+    public function render(): string
     {
         return implode([
             '{\\list\\listtemplateid' . $this->m_templateid . '\\listhybrid',

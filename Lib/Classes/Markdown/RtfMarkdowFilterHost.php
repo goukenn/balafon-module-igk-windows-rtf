@@ -21,6 +21,11 @@ class RtfMarkdowFilterHost implements IMarkdownFilterHost
         $this->m_host = $doc;
     }
 
+    public function getListTable()
+    {
+        return call_user_func_array([$this->m_host, __FUNCTION__], func_get_args());   
+    }
+
     public function escape(string $text): string
     {
         return call_user_func_array([$this->m_host, __FUNCTION__], func_get_args());   

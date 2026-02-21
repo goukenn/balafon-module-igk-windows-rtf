@@ -17,6 +17,7 @@ class RtfDocument extends RtfEntryDocument
     private static $sm_RENDRING_CONTEXT;
     private $m_titleFontStyleStyle;
     private $m_properties = [];
+    private $m_listtable;
     var $lang;
 
     public function setProperties($props){
@@ -297,18 +298,29 @@ class RtfDocument extends RtfEntryDocument
         return $ex_list;
     } 
     /**
+     * get new table new ids
+     * @return int 
+     */
+    public function getListTableNewIds(): int{
+        $ex_list = $this->m_listtable ?? $this->m_listtable = $this->_getCreatedOrNewExtends('listtable');   
+        $template = $ex_list->updateRefCount()->getRefCount();
+        return $template;
+    }
+    /**
      * 
      * @param mixed $r 
      * @return object 
      */
-    public function initMenuList($r){
-        $ex_list = $this->_getCreatedOrNewExtends('listtable');   
+    public function initMenuList($r, bool $new = false){        
+        $ex_list = $this->m_listtable ?? $this->m_listtable = $this->_getCreatedOrNewExtends('listtable');   
         $id = "\\ls";
-        if (!$ex_list->support($r->root)){
+        $v_def = null; 
+        if (!$ex_list->support($r->root) || $new){
             $template = $ex_list->updateRefCount()->getRefCount();
             $id.= $template;
             $listid = "\\listid".$template;
-            $ex_list->append(new RtfListDefinitionRendering($template, $id, $listid , $r));
+            $v_def = new RtfListDefinitionRendering($template, $id, $listid , $r);
+            $ex_list->append($v_def);
             // register 
             $ex_list = $this->_getCreatedOrNewExtends('listoverridetable');
             $ex_list->append(implode('', [
@@ -317,16 +329,26 @@ class RtfDocument extends RtfEntryDocument
                 "\\listoverridecount0",
                 $id,
                 "}"
-            ]));
+            ]));            
         } else {
             $sinfo = $ex_list->info($r->root);
             $sinfo->update($r);
             $id = $sinfo->id();
+            $v_def=$sinfo;
         }
-
+        
         return (object)[
-            'id'=>$id
+            'id'=>$id,
+            'def' => $v_def,
         ];
+    }
+
+    public function popupBulletList(string $root){
+        $v_tab = $this->getListTable();
+        $v_tab->popRoot($root);
+    }
+    public function getListTable(){
+        return $this->m_listtable;
     }
     /**
      */
@@ -369,7 +391,8 @@ class RtfDocument extends RtfEntryDocument
         ?int $levelid = null
     ) {
         $ex_list = $this->_getCreatedOrNewExtends('listtable');
-        $template = $ex_list->updateRefCount()->getRefCount();
+        // $template = $ex_list->updateRefCount()->getRefCount();
+        $template = $ex_list->getRefCount();
         $v_size = $size > 0 ? "\\'" . RtfUtility::ToHex($size) :  ' ';
         $this->m_listTableRefCount = $template;
         $v_pos = $position > 0 ?

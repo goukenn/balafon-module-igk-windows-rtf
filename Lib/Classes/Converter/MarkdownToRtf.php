@@ -19,7 +19,7 @@ class MarkdownToRtf{
      * @param string $source 
      * @return string 
      */
-    public function convert(string $source): string{
+    public static function convert(string $source): string{
       return RtfMarkdown::Convert($source);
     }
 }
